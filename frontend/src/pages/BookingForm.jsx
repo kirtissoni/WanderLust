@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { listingService } from "../api/listingService";
+import { bookingService } from "../api/bookingService";
 import { useAuth } from "../context/AuthContext";
 import { FaCalendar, FaUsers, FaRupeeSign } from "react-icons/fa";
 
@@ -111,64 +112,56 @@ export default function BookingForm() {
     setSubmitting(true);
 
     try {
+      // Call backend API to create booking
+      const bookingData = {
+        checkIn: formData.checkIn,
+        checkOut: formData.checkOut,
+        numberOfGuests: Number(formData.numberOfGuests) || 1,
+        fullName: formData.fullName || user?.username,
+        contact: formData.contact || "",
+      };
+
+      console.log("Submitting booking to backend:", bookingData);
+      const result = await bookingService.createBooking(id, bookingData);
+      console.log("Booking response:", result);
+
+      // Also save to localStorage for offline view
       const storageKey = `wl_bookings_${user?._id || "guest"}`;
       const arr = JSON.parse(localStorage.getItem(storageKey) || "[]");
+      const booking = {
+        _id: result.booking._id,
+        listing: {
+          _id: listing._id,
+          title: listing.title,
+          location: listing.location,
+          country: listing.country,
+          image: listing.image,
+          price: listing.price,
+        },
+        checkIn: formData.checkIn,
+        checkOut: formData.checkOut,
+        numberOfGuests: Number(formData.numberOfGuests) || 1,
+        totalPrice,
+        status: "confirmed",
+        userId: user?._id,
+        createdAt: new Date().toISOString(),
+        nights,
+        fullName: formData.fullName,
+        contact: formData.contact,
+      };
+      arr.push(booking);
+      localStorage.setItem(storageKey, JSON.stringify(arr));
 
-      if (allowEdit) {
-        const updated = arr.map((b) =>
-          b._id === bookingIdParam
-            ? {
-                ...b,
-                listing: {
-                  _id: listing._id,
-                  title: listing.title,
-                  location: listing.location,
-                  country: listing.country,
-                  image: listing.image,
-                  price: listing.price,
-                },
-                checkIn: formData.checkIn,
-                checkOut: formData.checkOut,
-                numberOfGuests: Number(formData.numberOfGuests) || 1,
-                totalPrice,
-                nights,
-                fullName: formData.fullName,
-                contact: formData.contact,
-              }
-            : b
-        );
-        localStorage.setItem(storageKey, JSON.stringify(updated));
-      } else {
-        const bookingId = `${Date.now()}`;
-        const booking = {
-          _id: bookingId,
-          listing: {
-            _id: listing._id,
-            title: listing.title,
-            location: listing.location,
-            country: listing.country,
-            image: listing.image,
-            price: listing.price,
-          },
-          checkIn: formData.checkIn,
-          checkOut: formData.checkOut,
-          numberOfGuests: Number(formData.numberOfGuests) || 1,
-          totalPrice,
-          status: "confirmed",
-          userId: user?._id,
-          createdAt: new Date().toISOString(),
-          nights,
-          fullName: formData.fullName,
-          contact: formData.contact,
-        };
-        arr.push(booking);
-        localStorage.setItem(storageKey, JSON.stringify(arr));
-      }
-
+      alert(result.message || "Booking confirmed! Check your email for confirmation.");
       setConfirmed(true);
+
+      // Redirect after 2 seconds
+      setTimeout(() => {
+        navigate("/bookings/my-bookings");
+      }, 2000);
     } catch (error) {
       console.error("Error creating booking (frontend):", error);
-      alert("Failed to create booking. Please try again.");
+      alert(error.response?.data?.error || "Failed to create booking. Please try again.");
     } finally {
       setSubmitting(false);
     }

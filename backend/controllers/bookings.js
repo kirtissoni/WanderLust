@@ -1,5 +1,9 @@
 const Booking = require("../models/booking");
 const Listing = require("../models/listing");
+const {
+  sendBookingConfirmation,
+  sendBookingCancellation,
+} = require("../utils/emailService");
 
 // Get booking form data (listing details)
 module.exports.getBookingForm = async (req, res) => {
@@ -12,13 +16,19 @@ module.exports.getBookingForm = async (req, res) => {
 
 // Create new booking
 module.exports.createBooking = async (req, res) => {
+  console.log("🔵 CREATE BOOKING REQUEST RECEIVED");
+  console.log("Request body:", req.body);
+  console.log("User:", req.user?.email);
+  
   try {
-    const listing = await Listing.findById(req.params.listingId);
+    const listing = await Listing.findById(req.params.listingId).populate(
+      "owner"
+    );
     if (!listing) {
       return res.status(404).json({ error: "Listing not found!" });
     }
 
-    const { checkIn, checkOut, numberOfGuests } = req.body;
+    const { checkIn, checkOut, numberOfGuests, fullName, contact } = req.body;
 
     // Calculate total price
     const checkInDate = new Date(checkIn);
@@ -44,9 +54,37 @@ module.exports.createBooking = async (req, res) => {
     });
 
     await booking.save();
+    console.log("📝 Booking saved successfully, ID:", booking._id);
+
+    // Send confirmation email
+    console.log("📧 Attempting to send email to:", req.user.email);
+    try {
+      const emailData = {
+        userEmail: req.user.email,
+        userName: req.user.username,
+        listingTitle: listing.title,
+        listingLocation: `${listing.location}, ${listing.country}`,
+        checkIn: checkInDate,
+        checkOut: checkOutDate,
+        numberOfGuests,
+        totalPrice,
+        nights,
+        bookingId: booking._id,
+        fullName: fullName || req.user.username,
+        contact: contact || "",
+      };
+      console.log("📧 Email data prepared:", emailData.userEmail);
+      await sendBookingConfirmation(emailData);
+      console.log("✅ Email sent successfully!");
+    } catch (emailError) {
+      console.error("❌ Email sending failed:", emailError.message);
+      console.error("Full error:", emailError);
+      // Continue even if email fails
+    }
+
     res.status(201).json({
       success: true,
-      message: "Booking confirmed successfully!",
+      message: "Booking confirmed successfully! Confirmation email sent.",
       booking,
       nights,
     });
@@ -71,7 +109,9 @@ module.exports.showUserBookings = async (req, res) => {
 // Cancel booking
 module.exports.cancelBooking = async (req, res) => {
   try {
-    const booking = await Booking.findById(req.params.bookingId);
+    const booking = await Booking.findById(req.params.bookingId).populate(
+      "listing"
+    );
 
     if (!booking) {
       return res.status(404).json({ error: "Booking not found" });
@@ -84,7 +124,25 @@ module.exports.cancelBooking = async (req, res) => {
     booking.status = "cancelled";
     await booking.save();
 
-    res.json({ success: true, message: "Booking cancelled successfully" });
+    // Send cancellation email
+    try {
+      await sendBookingCancellation({
+        userEmail: req.user.email,
+        userName: req.user.username,
+        listingTitle: booking.listing.title,
+        bookingId: booking._id,
+        checkIn: booking.checkIn,
+        checkOut: booking.checkOut,
+      });
+    } catch (emailError) {
+      console.error("Cancellation email failed:", emailError);
+      // Continue even if email fails
+    }
+
+    res.json({
+      success: true,
+      message: "Booking cancelled successfully. Confirmation email sent.",
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
