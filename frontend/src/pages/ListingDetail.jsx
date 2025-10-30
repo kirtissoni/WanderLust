@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom";
 import { listingService } from "../api/listingService";
 import { reviewService } from "../api/reviewService";
 import { useAuth } from "../context/AuthContext";
@@ -8,6 +8,7 @@ import { FaMapMarkerAlt, FaEdit, FaTrash, FaStar } from "react-icons/fa";
 export default function ListingDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user } = useAuth();
   const [listing, setListing] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -158,7 +159,7 @@ export default function ListingDetail() {
             {/* Book Now Button (for non-owners) */}
             {!isOwner && user && (
               <Link
-                to={`/listings/${id}/book`}
+                to={`/listings/${id}/book${searchParams.get("bookingId") ? `?bookingId=${searchParams.get("bookingId")}` : ""}`}
                 className="px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition font-semibold"
               >
                 Book Now
