@@ -1,13 +1,15 @@
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { listingService } from "../api/listingService";
 import { FaSearch, FaFilter } from "react-icons/fa";
 
 export default function Listings() {
+  const [searchParams] = useSearchParams();
   const [listings, setListings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("");
+  const bookingIdParam = searchParams.get("bookingId");
 
   const categories = [
     "Trending",
@@ -151,12 +153,11 @@ export default function Listings() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {listings.map((listing) => (
-            <Link
+            <div
               key={listing._id}
-              to={`/listings/${listing._id}`}
-              className="group bg-white rounded-lg shadow-md overflow-hidden hover:shadow-xl transition-shadow duration-300"
+              className="group bg-white rounded-lg shadow-md overflow-hidden hover:shadow-xl transition-shadow duration-300 flex flex-col"
             >
-              <div className="relative h-64 overflow-hidden">
+              <Link to={`/listings/${listing._id}${bookingIdParam ? `?bookingId=${bookingIdParam}` : ""}`} className="relative h-64 overflow-hidden block">
                 <img
                   src={
                     listing.image?.url || "https://via.placeholder.com/400x300"
@@ -169,19 +170,29 @@ export default function Listings() {
                     {listing.category}
                   </span>
                 )}
+              </Link>
+              <div className="p-4 flex-1 flex flex-col gap-3">
+                <div>
+                  <Link to={`/listings/${listing._id}${bookingIdParam ? `?bookingId=${bookingIdParam}` : ""}`} className="block">
+                    <h3 className="text-xl font-semibold text-gray-800 mb-1 truncate">
+                      {listing.title}
+                    </h3>
+                    <p className="text-gray-600 truncate">{listing.location}</p>
+                  </Link>
+                </div>
+                <div className="flex items-center justify-between">
+                  <p className="text-lg font-bold text-red-500">
+                    ₹{listing.price?.toLocaleString()} / night
+                  </p>
+                  <Link
+                    to={`/listings/${listing._id}${bookingIdParam ? `?bookingId=${bookingIdParam}` : ""}`}
+                    className="px-4 py-2 bg-gray-100 text-gray-800 rounded-lg hover:bg-gray-200 transition font-semibold"
+                  >
+                    View Details
+                  </Link>
+                </div>
               </div>
-              <div className="p-4">
-                <h3 className="text-xl font-semibold text-gray-800 mb-2 truncate">
-                  {listing.title}
-                </h3>
-                <p className="text-gray-600 mb-2 truncate">
-                  {listing.location}
-                </p>
-                <p className="text-lg font-bold text-red-500">
-                  ₹{listing.price?.toLocaleString()} / night
-                </p>
-              </div>
-            </Link>
+            </div>
           ))}
         </div>
       )}
