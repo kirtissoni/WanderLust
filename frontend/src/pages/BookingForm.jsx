@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { listingService } from "../api/listingService";
+import { bookingService } from "../api/bookingService";
 import { useAuth } from "../context/AuthContext";
 import { FaCalendar, FaUsers, FaRupeeSign } from "react-icons/fa";
 
@@ -111,64 +112,62 @@ export default function BookingForm() {
     setSubmitting(true);
 
     try {
+      // Call backend API to create booking
+      const bookingData = {
+        checkIn: formData.checkIn,
+        checkOut: formData.checkOut,
+        numberOfGuests: Number(formData.numberOfGuests) || 1,
+        fullName: formData.fullName || user?.username,
+        contact: formData.contact || "",
+      };
+
+      console.log("Submitting booking to backend:", bookingData);
+      const result = await bookingService.createBooking(id, bookingData);
+      console.log("Booking response:", result);
+
+      // Also save to localStorage for offline view
       const storageKey = `wl_bookings_${user?._id || "guest"}`;
       const arr = JSON.parse(localStorage.getItem(storageKey) || "[]");
+      const booking = {
+        _id: result.booking._id,
+        listing: {
+          _id: listing._id,
+          title: listing.title,
+          location: listing.location,
+          country: listing.country,
+          image: listing.image,
+          price: listing.price,
+        },
+        checkIn: formData.checkIn,
+        checkOut: formData.checkOut,
+        numberOfGuests: Number(formData.numberOfGuests) || 1,
+        totalPrice,
+        status: "confirmed",
+        userId: user?._id,
+        createdAt: new Date().toISOString(),
+        nights,
+        fullName: formData.fullName,
+        contact: formData.contact,
+      };
+      arr.push(booking);
+      localStorage.setItem(storageKey, JSON.stringify(arr));
 
-      if (allowEdit) {
-        const updated = arr.map((b) =>
-          b._id === bookingIdParam
-            ? {
-                ...b,
-                listing: {
-                  _id: listing._id,
-                  title: listing.title,
-                  location: listing.location,
-                  country: listing.country,
-                  image: listing.image,
-                  price: listing.price,
-                },
-                checkIn: formData.checkIn,
-                checkOut: formData.checkOut,
-                numberOfGuests: Number(formData.numberOfGuests) || 1,
-                totalPrice,
-                nights,
-                fullName: formData.fullName,
-                contact: formData.contact,
-              }
-            : b
-        );
-        localStorage.setItem(storageKey, JSON.stringify(updated));
-      } else {
-        const bookingId = `${Date.now()}`;
-        const booking = {
-          _id: bookingId,
-          listing: {
-            _id: listing._id,
-            title: listing.title,
-            location: listing.location,
-            country: listing.country,
-            image: listing.image,
-            price: listing.price,
-          },
-          checkIn: formData.checkIn,
-          checkOut: formData.checkOut,
-          numberOfGuests: Number(formData.numberOfGuests) || 1,
-          totalPrice,
-          status: "confirmed",
-          userId: user?._id,
-          createdAt: new Date().toISOString(),
-          nights,
-          fullName: formData.fullName,
-          contact: formData.contact,
-        };
-        arr.push(booking);
-        localStorage.setItem(storageKey, JSON.stringify(arr));
-      }
-
+      alert(
+        result.message ||
+          "Booking confirmed! Check your email for confirmation."
+      );
       setConfirmed(true);
+
+      // Redirect after 2 seconds
+      setTimeout(() => {
+        navigate("/bookings/my-bookings");
+      }, 2000);
     } catch (error) {
       console.error("Error creating booking (frontend):", error);
-      alert("Failed to create booking. Please try again.");
+      alert(
+        error.response?.data?.error ||
+          "Failed to create booking. Please try again."
+      );
     } finally {
       setSubmitting(false);
     }
@@ -193,7 +192,9 @@ export default function BookingForm() {
   return (
     <div className="min-h-screen py-8">
       <div className="container mx-auto px-4 max-w-6xl">
-        <h1 className="text-4xl font-bold text-gray-900 mb-8">Book Your Stay</h1>
+        <h1 className="text-4xl font-bold text-gray-900 mb-8">
+          Book Your Stay
+        </h1>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Listing Info */}
@@ -214,7 +215,9 @@ export default function BookingForm() {
                 ₹{listing.price?.toLocaleString()} / night
               </p>
               {listing.description && (
-                <p className="text-gray-700 mt-4 leading-relaxed text-sm">{listing.description}</p>
+                <p className="text-gray-700 mt-4 leading-relaxed text-sm">
+                  {listing.description}
+                </p>
               )}
             </div>
           </div>
@@ -280,7 +283,9 @@ export default function BookingForm() {
                     value={formData.checkOut}
                     onChange={handleChange}
                     required
-                    min={formData.checkIn || new Date().toISOString().split("T")[0]}
+                    min={
+                      formData.checkIn || new Date().toISOString().split("T")[0]
+                    }
                     className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm"
                   />
                 </div>
@@ -304,12 +309,17 @@ export default function BookingForm() {
                 {/* Price Summary */}
                 {nights > 0 && (
                   <div className="p-5 bg-gradient-to-br from-red-50 to-orange-50 rounded-xl border border-red-100">
-                    <h3 className="text-base font-bold mb-3 text-gray-900">Price Summary</h3>
+                    <h3 className="text-base font-bold mb-3 text-gray-900">
+                      Price Summary
+                    </h3>
                     <div className="flex justify-between mb-2 text-sm text-gray-700">
                       <span>
-                        ₹{listing.price?.toLocaleString()} × {nights} night{nights > 1 ? "s" : ""}
+                        ₹{listing.price?.toLocaleString()} × {nights} night
+                        {nights > 1 ? "s" : ""}
                       </span>
-                      <span className="font-semibold">₹{totalPrice.toLocaleString()}</span>
+                      <span className="font-semibold">
+                        ₹{totalPrice.toLocaleString()}
+                      </span>
                     </div>
                     <div className="border-t border-red-200 pt-3 mt-3">
                       <div className="flex justify-between font-bold text-lg">
@@ -329,7 +339,13 @@ export default function BookingForm() {
                     disabled={submitting || nights <= 0}
                     className="flex-1 px-5 py-2.5 bg-red-600 text-white text-sm font-semibold rounded-lg hover:bg-red-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed"
                   >
-                    {submitting ? (allowEdit ? "Saving..." : "Booking...") : allowEdit ? "Save Changes" : "Confirm Booking"}
+                    {submitting
+                      ? allowEdit
+                        ? "Saving..."
+                        : "Booking..."
+                      : allowEdit
+                      ? "Save Changes"
+                      : "Confirm Booking"}
                   </button>
                   <button
                     type="button"
@@ -341,7 +357,9 @@ export default function BookingForm() {
                   {allowEdit && (
                     <button
                       type="button"
-                      onClick={() => navigate(`/listings?bookingId=${bookingIdParam}`)}
+                      onClick={() =>
+                        navigate(`/listings?bookingId=${bookingIdParam}`)
+                      }
                       className="px-5 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition"
                     >
                       Change Listing
@@ -352,30 +370,50 @@ export default function BookingForm() {
             ) : (
               <div className="text-center">
                 <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
+                  <svg
+                    className="w-8 h-8 text-green-600"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M5 13l4 4L19 7"
+                    ></path>
                   </svg>
                 </div>
-                <h3 className="text-2xl font-bold text-green-600 mb-2">Booking Confirmed!</h3>
+                <h3 className="text-2xl font-bold text-green-600 mb-2">
+                  Booking Confirmed!
+                </h3>
                 <p className="text-gray-600 mb-6 text-sm">
-                  A confirmation email has been sent to your registered email address. (Mock message)
+                  A confirmation email has been sent to your registered email
+                  address. (Mock message)
                 </p>
                 <div className="mb-6 p-5 bg-gray-50 rounded-xl text-left space-y-2">
-                  <h4 className="text-base font-bold mb-3 text-gray-900">Booking Summary</h4>
+                  <h4 className="text-base font-bold mb-3 text-gray-900">
+                    Booking Summary
+                  </h4>
                   <p className="text-sm text-gray-700">
-                    <span className="font-semibold">Check-in:</span> {new Date(formData.checkIn).toLocaleDateString()}
+                    <span className="font-semibold">Check-in:</span>{" "}
+                    {new Date(formData.checkIn).toLocaleDateString()}
                   </p>
                   <p className="text-sm text-gray-700">
-                    <span className="font-semibold">Check-out:</span> {new Date(formData.checkOut).toLocaleDateString()}
+                    <span className="font-semibold">Check-out:</span>{" "}
+                    {new Date(formData.checkOut).toLocaleDateString()}
                   </p>
                   <p className="text-sm text-gray-700">
-                    <span className="font-semibold">Guests:</span> {formData.numberOfGuests}
+                    <span className="font-semibold">Guests:</span>{" "}
+                    {formData.numberOfGuests}
                   </p>
                   <p className="text-sm text-gray-700">
-                    <span className="font-semibold">Name:</span> {formData.fullName}
+                    <span className="font-semibold">Name:</span>{" "}
+                    {formData.fullName}
                   </p>
                   <p className="text-sm text-gray-700">
-                    <span className="font-semibold">Contact:</span> {formData.contact}
+                    <span className="font-semibold">Contact:</span>{" "}
+                    {formData.contact}
                   </p>
                   <p className="font-bold mt-3 text-red-600 text-base">
                     Total Paid: ₹{totalPrice.toLocaleString()}
