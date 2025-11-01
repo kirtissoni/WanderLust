@@ -22,6 +22,7 @@ const listingRouter = require("./routes/listing.js");
 const reviewRouter = require("./routes/review.js");
 const userRouter = require("./routes/user.js");
 const bookingRouter = require("./routes/booking.js");
+const userDashboardRoute = require("./routes/userDashboard");
 
 //  MongoDB Connection
 const dbUrl = process.env.ATLASDB_URL;
@@ -109,6 +110,7 @@ app.use("/listings/:listingId/reviews", reviewRouter);
 app.use("/listings/:listingId/bookings", bookingRouter);
 app.use("/bookings", bookingRouter);
 app.use("/", userRouter);
+app.use("/api/dashboard", userDashboardRoute);
 
 //  Global Error Handler
 app.use((err, req, res, next) => {

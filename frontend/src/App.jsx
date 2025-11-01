@@ -17,6 +17,7 @@ import Signup from "./pages/Signup";
 import Profile from "./pages/Profile";
 import BookingForm from "./pages/BookingForm";
 import MyBookings from "./pages/MyBookings";
+import Dashboard from "./pages/Dashboard";
 
 function App() {
   return (
@@ -36,6 +37,7 @@ function App() {
               <Route path="/login" element={<Login />} />
               <Route path="/signup" element={<Signup />} />
               <Route path="/profile" element={<Profile />} />
+              <Route path="/dashboard" element={<Dashboard />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </main>
