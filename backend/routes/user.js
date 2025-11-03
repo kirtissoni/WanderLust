@@ -24,7 +24,25 @@ router.post("/send-otp", wrapAsync(userController.sendOTP));
 router
   .route("/login")
   .get(userController.renderLoginForm)
-  .post(passport.authenticate("local"), userController.login);
+  .post((req, res, next) => {
+    passport.authenticate("local", (err, user, info) => {
+      if (err) {
+        return next(err);
+      }
+      if (!user) {
+        return res.status(401).json({
+          success: false,
+          message: info?.message || "Invalid username or password",
+        });
+      }
+      req.logIn(user, (err) => {
+        if (err) {
+          return next(err);
+        }
+        return userController.login(req, res);
+      });
+    })(req, res, next);
+  });
 
 // Logout
 router.get("/logout", userController.logout);
